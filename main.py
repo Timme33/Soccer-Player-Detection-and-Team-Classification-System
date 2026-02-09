@@ -6,7 +6,7 @@ from SoccerDetect import run_cv_pipeline
 
 app = FastAPI()
 
-# Allow your frontend to connect
+# Allow the frontend to connect
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -21,7 +21,7 @@ async def process_image(file: UploadFile = File(...)):
     with open(input_path, "wb") as f:
         f.write(await file.read())
 
-    output1, output2 = run_cv_pipeline(input_path)
+    output1, output2 = run_cv_pipeline(input_path) # runs the computer vision pipeline
 
     if output1 is None or output2 is None:
         return {"error": "Not enough detected players to analyze formation."}
