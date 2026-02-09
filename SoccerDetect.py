@@ -82,6 +82,20 @@ def pick_jersey_cluster(hsv_pixels, grass_hue):
 
 # ---------- main pipeline function ----------
 def run_cv_pipeline(image_path: str):
+    """
+    Run detection + team classification on a single soccer frame.
+
+    Steps:
+      1) Detect players with a YOLOv8 model.
+      2) For each detected player, estimate a representative jersey color
+         (foreground-masked HSV, biased away from grass/background).
+      3) Cluster jersey colors into Team A / Team B / Other.
+      4) Write two annotated images: one per team (boxes + connecting lines).
+
+    Returns:
+      (teamA_path, teamB_path) if successful, otherwise (None, None).
+    """
+
     print("Loading soccer-trained YOLO model...")
     detector = YOLO("player_detection_best.pt")
 
@@ -95,7 +109,7 @@ def run_cv_pipeline(image_path: str):
     all_boxes = []
     for b in res.boxes:
         x1, y1, x2, y2 = map(int, b.xyxy[0]); all_boxes.append((x1, y1, x2, y2))
-    grass_h = estimate_grass_hue(frame, all_boxes)
+    grass_h = estimate_grass_hue(frame, all_boxes) # used to avoid picking "grass" as the dominant color
     print(f"Estimated grass hue ≈ {grass_h}")
 
     player_boxes, player_colors = [], []
@@ -113,7 +127,8 @@ def run_cv_pipeline(image_path: str):
         if crop.size == 0:
             continue
 
-        mask = grabcut_mask(crop)
+        mask = grabcut_mask(crop) # rough foreground mask to isolate the player from background
+        # Remove top/bottom bands: reduces bias from faces/shorts/field and emphasizes jersey region.
         h = mask.shape[0]
         mask[:int(0.15*h), :] = 0
         mask[int(0.80*h):, :] = 0
@@ -144,6 +159,7 @@ def run_cv_pipeline(image_path: str):
     hx, hy = np.cos(theta), np.sin(theta)
     features = np.stack([hx, hy, (S/255.0)*0.45, (V/255.0)*0.25], axis=1)
 
+    # KMeans with 3 clusters: two teams + a catch-all "other" cluster (refs, goalies, noise, etc.)
     km = KMeans(n_clusters=3, n_init=20, random_state=0).fit(features)
     labels = km.labels_
     counts = np.bincount(labels)
@@ -158,7 +174,7 @@ def run_cv_pipeline(image_path: str):
 
     teamA_centers, teamB_centers = [], []
     for (x1, y1, x2, y2), lab in zip(player_boxes, final):
-        cx, cy = (x1 + x2)//2, y2  # bottom-center
+        cx, cy = (x1 + x2)//2, y2  # bottom-center anchor for connecting lines (more stable than box center)
         if lab == 0:
             cv2.rectangle(teamA_img, (x1, y1), (x2, y2), gray, 2)
             teamA_centers.append((cx, cy))
