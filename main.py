@@ -22,6 +22,10 @@ async def process_image(file: UploadFile = File(...)):
         f.write(await file.read())
 
     output1, output2 = run_cv_pipeline(input_path)
+
+    if output1 is None or output2 is None:
+        return {"error": "Not enough detected players to analyze formation."}
+
     return {
         "annotated1": f"/image/{os.path.basename(output1)}",
         "annotated2": f"/image/{os.path.basename(output2)}",

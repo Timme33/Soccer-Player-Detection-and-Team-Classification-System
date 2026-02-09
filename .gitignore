@@ -1,1 +1,5 @@
 player_detection_best.pt
+__pycache__/
+*.pyc
+.venv/
+.DS_Store

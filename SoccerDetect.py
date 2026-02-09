@@ -135,7 +135,8 @@ def run_cv_pipeline(image_path: str):
 
     if len(player_colors) < 3:
         print("❌ Not enough player samples for clustering.")
-        raise RuntimeError("Not enough player samples for clustering")
+        # Return placeholders or indicate failure
+        return None, None
 
     player_colors = np.array(player_colors, dtype=np.float32)
     H, S, V = player_colors[:,0], player_colors[:,1], player_colors[:,2]
